@@ -41,11 +41,18 @@ print("\n✅ Все модели загружены успешно!")
 
 def infer(lq_sequence, task_name):
     try:
+        print("🔄 Начало обработки видео...")
+        
         # Очищаем память GPU перед запуском
         if torch.cuda.is_available():
+            print("🧹 Очистка памяти GPU...")
             torch.cuda.empty_cache()
             import gc
             gc.collect()
+            
+            # Выводим информацию о доступной памяти
+            print(f"💾 Доступная память GPU: {torch.cuda.get_device_properties(0).total_memory/1e9:.2f}GB")
+            print(f"💾 Используется памяти: {torch.cuda.memory_allocated()/1e9:.2f}GB")
         
         unique_id = str(uuid.uuid4())
         output_dir = f"results_{unique_id}"
@@ -59,12 +66,21 @@ def infer(lq_sequence, task_name):
         
         # Устанавливаем переменные окружения для процесса
         env = os.environ.copy()
-        env['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'
+        # Используем больше памяти, так как у нас 12GB VRAM
+        env['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128,garbage_collection_threshold:0.8'
         env['CUDA_LAUNCH_BLOCKING'] = '1'
         env['PYTORCH_NO_CUDA_MEMORY_CACHING'] = '1'
+        env['CUDA_VISIBLE_DEVICES'] = '0'
         
-        # Запускаем inference с настройками памяти
-        subprocess.run(
+        # Разрешаем использовать до 90% доступной памяти
+        if torch.cuda.is_available():
+            torch.cuda.set_per_process_memory_fraction(0.9)
+            
+        print(f"💾 Настроено использование памяти GPU: до 90% от {torch.cuda.get_device_properties(0).total_memory/1e9:.1f}GB")
+        
+        print("🚀 Запуск inference...")
+        # Запускаем inference с настройками памяти и перехватом вывода
+        process = subprocess.run(
             [
                 "python", "infer.py",
                 "--config", "config/infer.yaml",
@@ -73,31 +89,42 @@ def infer(lq_sequence, task_name):
                 "--output_dir", f"{output_dir}",
             ],
             check=True,
-            env=env
+            env=env,
+            capture_output=True,
+            text=True
         )
+        
+        # Выводим логи процесса
+        if process.stdout:
+            print("📝 Вывод процесса:")
+            print(process.stdout)
+        if process.stderr:
+            print("⚠️ Ошибки процесса:")
+            print(process.stderr)
 
         # Search for the mp4 file in a subfolder of output_dir
         output_video = glob(os.path.join(output_dir,"*.mp4"))
-        print(output_video)
         
         if output_video:
-            output_video_path = output_video[0]  # Get the first match
+            output_video_path = output_video[0]
+            print(f"✅ Обработка завершена: {output_video_path}")
+            return output_video_path
         else:
-            output_video_path = None
-        
-        print(output_video_path)
-        return output_video_path
+            print("❌ Не удалось найти выходное видео")
+            raise gr.Error("Не удалось создать выходное видео")
     
     except subprocess.CalledProcessError as e:
-        # Очищаем память при ошибке
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             gc.collect()
-        raise gr.Error(f"Error during inference: {str(e)}")
+        error_msg = f"Stdout: {e.stdout}\nStderr: {e.stderr}" if hasattr(e, 'stdout') else str(e)
+        print(f"❌ Ошибка при обработке: {error_msg}")
+        raise gr.Error(f"Error during inference: {error_msg}")
     except Exception as e:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             gc.collect()
+        print(f"❌ Неожиданная ошибка: {str(e)}")
         raise gr.Error(f"Unexpected error: {str(e)}")
     finally:
         # Очищаем старые результаты
@@ -105,8 +132,9 @@ def infer(lq_sequence, task_name):
             for old_dir in glob("results_*"):
                 if os.path.isdir(old_dir):
                     shutil.rmtree(old_dir, ignore_errors=True)
+            print("🧹 Очистка временных файлов завершена")
         except Exception as e:
-            print(f"Error cleaning up: {e}")
+            print(f"⚠️ Ошибка при очистке: {e}")
 
 css="""
 div#col-container{

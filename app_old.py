@@ -31,19 +31,30 @@ snapshot_download(
 )
 
 def infer(lq_sequence, task_name):
-    
-    unique_id = str(uuid.uuid4())
-    output_dir = f"results_{unique_id}"
-
-    if task_name == "BFR":
-        task_id = "0"
-    elif task_name == "colorization":
-        task_id = "1"
-    elif task_name == "BFR + colorization":
-        task_id = "0,1"
-    
     try:
-        # Run the inference command
+        # Очищаем память GPU перед запуском
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            import gc
+            gc.collect()
+        
+        unique_id = str(uuid.uuid4())
+        output_dir = f"results_{unique_id}"
+
+        if task_name == "BFR":
+            task_id = "0"
+        elif task_name == "colorization":
+            task_id = "1"
+        elif task_name == "BFR + colorization":
+            task_id = "0,1"
+        
+        # Устанавливаем переменные окружения для процесса
+        env = os.environ.copy()
+        env['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'
+        env['CUDA_LAUNCH_BLOCKING'] = '1'
+        env['PYTORCH_NO_CUDA_MEMORY_CACHING'] = '1'
+        
+        # Запускаем inference с настройками памяти
         subprocess.run(
             [
                 "python", "infer.py",
@@ -52,7 +63,8 @@ def infer(lq_sequence, task_name):
                 "--input_path", f"{lq_sequence}",
                 "--output_dir", f"{output_dir}",
             ],
-            check=True
+            check=True,
+            env=env
         )
 
         # Search for the mp4 file in a subfolder of output_dir
@@ -68,7 +80,24 @@ def infer(lq_sequence, task_name):
         return output_video_path
     
     except subprocess.CalledProcessError as e:
+        # Очищаем память при ошибке
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            gc.collect()
         raise gr.Error(f"Error during inference: {str(e)}")
+    except Exception as e:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            gc.collect()
+        raise gr.Error(f"Unexpected error: {str(e)}")
+    finally:
+        # Очищаем старые результаты
+        try:
+            for old_dir in glob("results_*"):
+                if os.path.isdir(old_dir):
+                    shutil.rmtree(old_dir, ignore_errors=True)
+        except Exception as e:
+            print(f"Error cleaning up: {e}")
 
 css="""
 div#col-container{

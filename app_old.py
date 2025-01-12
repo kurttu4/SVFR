@@ -8,13 +8,18 @@ import uuid
 import gradio as gr
 from glob import glob
 from huggingface_hub import snapshot_download
+from tqdm.notebook import tqdm  # Для красивого вывода в Colab
+
+print("🚀 Инициализация SVFR...")
 
 # Download models
 os.makedirs("models", exist_ok=True)
+print("\n📥 Загрузка основных моделей...")
 
 snapshot_download(
     repo_id = "fffiloni/SVFR",
-    local_dir = "./models"  
+    local_dir = "./models",
+    tqdm_class=tqdm  # Используем tqdm для прогресс-бара
 )
 
 # List of subdirectories to create inside "checkpoints"
@@ -25,10 +30,14 @@ subfolders = [
 for subfolder in subfolders:
     os.makedirs(os.path.join("models", subfolder), exist_ok=True)
 
+print("\n📥 Загрузка модели Stable Video Diffusion...")
 snapshot_download(
     repo_id = "stabilityai/stable-video-diffusion-img2vid-xt",
-    local_dir = "./models/stable-video-diffusion-img2vid-xt"  
+    local_dir = "./models/stable-video-diffusion-img2vid-xt",
+    tqdm_class=tqdm  # Используем tqdm для прогресс-бара
 )
+
+print("\n✅ Все модели загружены успешно!")
 
 def infer(lq_sequence, task_name):
     try:

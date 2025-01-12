@@ -1,3 +1,46 @@
+Hugging Face's logo
+Hugging Face
+Models
+Datasets
+Spaces
+Posts
+Docs
+Enterprise
+Pricing
+
+
+
+Spaces:
+
+fffiloni
+/
+SVFR-demo
+
+
+like
+11
+App
+Files
+Community
+SVFR-demo
+/
+app.py
+
+fffiloni's picture
+fffiloni
+Add references
+7379673
+verified
+about 21 hours ago
+raw
+
+Copy download link
+history
+blame
+contribute
+delete
+
+4.27 kB
 import torch
 import sys
 import os
@@ -25,10 +68,10 @@ subfolders = [
 for subfolder in subfolders:
     os.makedirs(os.path.join("models", subfolder), exist_ok=True)
 
- snapshot_download(
-     repo_id = "stabilityai/stable-video-diffusion-img2vid-xt",
-     local_dir = "./models/stable-video-diffusion-img2vid-xt"  
- )
+snapshot_download(
+    repo_id = "stabilityai/stable-video-diffusion-img2vid-xt",
+    local_dir = "./models/stable-video-diffusion-img2vid-xt"  
+)
 
 def infer(lq_sequence, task_name):
     

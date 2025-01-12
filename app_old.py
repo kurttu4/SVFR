@@ -25,10 +25,10 @@ subfolders = [
 for subfolder in subfolders:
     os.makedirs(os.path.join("models", subfolder), exist_ok=True)
 
-# snapshot_download(
-#     repo_id = "stabilityai/stable-video-diffusion-img2vid-xt",
-#     local_dir = "./models/stable-video-diffusion-img2vid-xt"  
-# )
+ snapshot_download(
+     repo_id = "stabilityai/stable-video-diffusion-img2vid-xt",
+     local_dir = "./models/stable-video-diffusion-img2vid-xt"  
+ )
 
 def infer(lq_sequence, task_name):
     
